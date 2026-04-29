@@ -83,9 +83,9 @@ class MemoryStore:
         self._rebuild_stats()
 
     def _rebuild_stats(self):
-        """从现有 ChromaDB 数据重建 BM25 统计和实体索引。"""
+        """从现有 ChromaDB 数据重建 BM25 统计和实体索引（最多处理 20000 条）。"""
         try:
-            all_data = self._semantic.get()
+            all_data = self._semantic.get(limit=20000)
             if not all_data or not all_data.get("ids"):
                 return
 
@@ -164,6 +164,8 @@ class MemoryStore:
     def _init_db(self):
         """Create SQLite tables for episodic memory."""
         with sqlite3.connect(str(self._db_path)) as conn:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=5000")
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS episodes (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -212,7 +214,8 @@ class MemoryStore:
         [mem0] 新增去重检查
         """
         if doc_id is None:
-            doc_id = f"mem_{int(time.time() * 1000)}"
+            import uuid
+            doc_id = f"mem_{int(time.time() * 1000)}_{uuid.uuid4().hex[:6]}"
 
         # [mem0] 去重检查
         is_dup, reason = self._dedup.is_duplicate(content)

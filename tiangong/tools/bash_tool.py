@@ -68,7 +68,8 @@ def bash_tool(args: dict, **kwargs) -> str:
         elif level == "warning":
             logger.info("命令需注意: %s — %s", command[:100], "; ".join(reasons))
     except Exception:
-        pass
+        logger.warning("命令安全检查失败，默认拒绝: %s", command[:100])
+        return tool_error("⚠ 命令安全检查失败，已拒绝执行。")
 
     # ── 后台执行 [原创] ──
     if run_in_background:

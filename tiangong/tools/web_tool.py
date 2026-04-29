@@ -4,18 +4,48 @@
 使用 Bing 国内版搜索，无需 API key，中文结果更准确。
 """
 
+import ipaddress
 import json
 import logging
 import re
+import socket
 import urllib.request
 import urllib.error
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Dict, List, Optional
+from urllib.parse import urlparse
 
 from tiangong.core.registry import registry, tool_result, tool_error
 
 logger = logging.getLogger(__name__)
+
+
+def _is_private_host(hostname: str | None) -> bool:
+    """SSRF 防护：检查 hostname 是否指向内网/本地地址。"""
+    if not hostname:
+        return True
+    try:
+        ip = ipaddress.ip_address(hostname)
+        # IPv6-mapped IPv4 解包
+        if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+            ip = ip.ipv4_mapped
+        return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_unspecified
+    except ValueError:
+        pass
+    # 域名 — 解析后检查
+    try:
+        resolved = socket.getaddrinfo(hostname, None)
+        for r in resolved:
+            addr = r[4][0]
+            ip = ipaddress.ip_address(addr)
+            if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
+                ip = ip.ipv4_mapped
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_unspecified:
+                return True
+    except socket.gaierror:
+        return False
+    return False
 
 WEB_SEARCH_SCHEMA = {
     "name": "web_search",
@@ -237,21 +267,32 @@ def web_fetch_tool(args: dict, **kwargs) -> str:
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
 
-    # 基本 URL 验证
+    # 基本 URL 验证 + SSRF 防护
     try:
-        from urllib.parse import urlparse
         parsed = urlparse(url)
         if not parsed.netloc:
             return tool_error(f"无效的 URL: {url}")
+        if _is_private_host(parsed.hostname):
+            return tool_error(f"禁止访问内网地址: {parsed.hostname}")
     except Exception:
         return tool_error(f"无效的 URL: {url}")
 
     try:
+        # SSRF 防护：自定义重定向处理器，检查每个跳转目标
+        class _SSRFRedirectHandler(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, req, fp, code, msg, headers, newurl):
+                parsed_new = urlparse(newurl)
+                if _is_private_host(parsed_new.hostname):
+                    raise urllib.error.URLError(f"SSRF: 禁止重定向到内网地址 {parsed_new.hostname}")
+                return urllib.request.HTTPRedirectHandler.redirect_request(
+                    self, req, fp, code, msg, headers, newurl)
+
         req = urllib.request.Request(url, headers={
             "User-Agent": "TianGong/1.0 (AI Assistant; +https://github.com/tiangong)",
             "Accept": "text/html,application/xhtml+xml,text/plain",
         })
-        with urllib.request.urlopen(req, timeout=20) as resp:
+        opener = urllib.request.build_opener(_SSRFRedirectHandler())
+        with opener.open(req, timeout=20) as resp:
             # 检查 Content-Type
             content_type = resp.headers.get("Content-Type", "")
             if "text/html" not in content_type and "text/plain" not in content_type:

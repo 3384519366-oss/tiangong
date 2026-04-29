@@ -3,7 +3,6 @@
 古匠精神，今技呈现 — 从青铜铭文到终端美学。
 """
 
-from typing import List
 import sys
 import tty
 import termios
@@ -14,6 +13,7 @@ from rich.panel import Panel
 from rich.live import Live
 from rich.text import Text
 from rich.table import Table
+from rich.markup import escape
 from rich import box
 
 console = Console()
@@ -230,8 +230,8 @@ def print_sessions_panel(sessions: list):
         name = (s.get("name", "") or "")[:30]
         msgs = s.get("message_count", 0)
         table.add_row(
-            f"[bold {BRONZE}][{sid}][/]",
-            f"[{PARCHMENT}]{name}[/]",
+            f"[bold {BRONZE}][{escape(sid)}][/]",
+            f"[{PARCHMENT}]{escape(name)}[/]",
             f"[dim]{msgs} 条消息[/]",
         )
     table.add_row("", f"[dim]输入 /load <id> 恢复会话[/]", "")
@@ -422,7 +422,7 @@ def print_config_panel(config_data: dict):
         ("日志级别", config_data.get("log_level", "?")),
     ]
     for label, value in rows:
-        table.add_row(f"[bold {SILK}]{label}[/]", f"[{PARCHMENT}]{value}[/]")
+        table.add_row(f"[bold {SILK}]{label}[/]", f"[{PARCHMENT}]{escape(str(value))}[/]")
     console.print()
     console.print(Panel(table, border_style=BRONZE, box=box.ROUNDED,
                         title="⚙  当前配置", title_align="left", padding=(1, 2)))
@@ -522,40 +522,6 @@ def print_help_bar():
         " /help 命令  │  ! 执行  │  @ 引用文件  │  Ctrl+C 退出",
         style=MIST,
         justify="center",
-    ))
-
-
-def print_user_input(text: str):
-    """用户输入面板 — 玉色边框。"""
-    console.print()
-    console.print(Panel(
-        Text(text, style=PARCHMENT),
-        border_style=JADE,
-        box=box.ROUNDED,
-        title="你",
-        title_align="left",
-        padding=(1, 2),
-    ))
-
-
-def print_tool_call(display_name: str, emoji: str, args: dict, tool_name: str = ""):
-    """工具调用卡 — 根据工具分类着色边框（单个工具）。"""
-    color = _tool_color(tool_name) if tool_name else MIST
-    arg_parts = []
-    for k, v in args.items():
-        v_str = str(v)
-        if len(v_str) > 60:
-            v_str = v_str[:57] + "..."
-        arg_parts.append(f"{k}={v_str}")
-    arg_str = "  ".join(arg_parts)[:120]
-
-    console.print(Panel(
-        Text(arg_str or "(无参数)", style=MIST),
-        border_style=color,
-        box=box.ROUNDED,
-        title=f"{emoji}  {display_name}",
-        title_align="left",
-        padding=(0, 1),
     ))
 
 

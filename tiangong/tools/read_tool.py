@@ -59,11 +59,33 @@ def read_tool(args: dict, **kwargs) -> str:
         return tool_error("文件路径不能为空。")
 
     path = Path(file_path).expanduser().resolve()
+
+    # 安全检查：禁止读取敏感系统/隐私文件
+    home = Path.home().resolve()
+    sensitive_paths = [
+        home / ".ssh",
+        home / ".aws",
+        home / ".gcp",
+        home / ".config" / "gh",
+        home / ".gitconfig",
+        home / ".netrc",
+        Path("/etc").resolve() / "passwd",
+        Path("/etc").resolve() / "shadow",
+        Path("/etc").resolve() / "hosts",
+        Path("/var").resolve() / "root",
+    ]
+    for sp in sensitive_paths:
+        try:
+            rp = sp.resolve()
+            if str(path) == str(rp) or str(path).startswith(str(rp) + "/"):
+                return tool_error(f"禁止读取敏感文件: {sp}")
+        except Exception:
+            pass
+
     if not path.exists():
         return tool_error(f"文件不存在: {path}")
-
     if path.is_dir():
-        return tool_error(f"路径是目录而非文件: {path}。如需列出目录，请使用 bash 工具执行 ls。")
+        return tool_error(f"路径是目录而非文件: {path}")
 
     ext = path.suffix.lower()
 

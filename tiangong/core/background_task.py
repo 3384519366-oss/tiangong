@@ -73,6 +73,13 @@ class BackgroundTask:
         self.status = TaskStatus.RUNNING
         self.started_at = time.time()
 
+        # 剥离 SSH/GPG 会话套接字（防止 agent socket hijack）
+        # API key 保留 — 用户可能在命令中主动使用
+        safe_env = dict(os.environ)
+        safe_env.pop("SSH_AUTH_SOCK", None)
+        safe_env.pop("SSH_AGENT_PID", None)
+        safe_env.pop("GPG_AGENT_INFO", None)
+
         try:
             self._process = subprocess.run(
                 self.command,
@@ -81,7 +88,7 @@ class BackgroundTask:
                 text=True,
                 timeout=self.timeout,
                 cwd=os.path.expanduser(self.cwd),
-                env={**os.environ},
+                env=safe_env,
             )
             self.stdout = (self._process.stdout or "")[:50000]
             self.stderr = (self._process.stderr or "")[:10000]

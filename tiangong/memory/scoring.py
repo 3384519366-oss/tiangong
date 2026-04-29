@@ -199,9 +199,6 @@ def rank_results(
 
     for item in results:
         semantic_score = item.get("score", item.get("distance", 0.5))
-        # 距离转相似度（cosine distance → similarity）
-        if isinstance(semantic_score, (int, float)) and 0 <= semantic_score <= 2:
-            semantic_score = 1.0 - semantic_score / 2.0
 
         content = item.get("content", "") or ""
 

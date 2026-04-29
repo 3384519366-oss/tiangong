@@ -101,9 +101,12 @@ class OpenAICompatibleProvider(BaseLLMProvider):
         try:
             stream = self.client.chat.completions.create(**kwargs)
         except Exception:
-            # 部分 Provider 不支持 stream_options，回退
+            # 部分 Provider 不支持 stream_options，回退重试
             del kwargs["stream_options"]
-            stream = self.client.chat.completions.create(**kwargs)
+            try:
+                stream = self.client.chat.completions.create(**kwargs)
+            except Exception:
+                raise  # 回退后仍失败，向上抛出
 
         tool_call_buf: Dict[int, Dict[str, Any]] = {}
         content_buf = ""
@@ -206,14 +209,22 @@ def create_provider(provider_config: dict, model_name: str = "", max_tokens: int
     provider_config 格式 (来自 config.yaml providers.<name>):
     {
         "type": "deepseek",           # provider 类型
-        "api_key_env": "DEEPSEEK_KEY",# API key 环境变量（可选）
+        "api_key_env": "DEEPSEEK_KEY",# API key 环境变量（可选，自动解析）
         "api_key": "***",             # 或直接提供 key
         "base_url": "https://...",    # API 端点
     }
     """
+    import os
+
     provider_type = provider_config.get("type", "openai")
     api_key = provider_config.get("api_key", "")
     base_url = provider_config.get("base_url", "")
+
+    # 解析 api_key_env（与 Config.get_provider() 保持一致）
+    if "api_key_env" in provider_config:
+        env_val = os.environ.get(provider_config["api_key_env"], "")
+        if env_val:
+            api_key = env_val
 
     cls = _PROVIDER_REGISTRY.get(provider_type)
     if cls is None:
@@ -223,7 +234,7 @@ def create_provider(provider_config: dict, model_name: str = "", max_tokens: int
     if cls is OpenAICompatibleProvider:
         return cls(api_key=api_key, base_url=base_url, model=model_name, max_tokens=max_tokens)
 
-    # 子类（Ollama/MLX）用各自默认参数
+    # 子类（Ollama/MLX）用各自默认参数，忽略外部 api_key
     kwargs = {"model": model_name, "max_tokens": max_tokens}
     if base_url:
         kwargs["base_url"] = base_url

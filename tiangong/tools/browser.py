@@ -91,6 +91,13 @@ def navigate(url: str, wait_until: str = "networkidle") -> str:
         url: 目标网址
         wait_until: 等待条件 (load/domcontentloaded/networkidle)
     """
+    # SSRF 防护
+    from urllib.parse import urlparse
+    from .web_tool import _is_private_host
+    parsed = urlparse(url)
+    if _is_private_host(parsed.hostname):
+        return json.dumps({"error": f"禁止访问内网地址: {parsed.hostname}", "message": "SSRF 防护拦截"}, ensure_ascii=False)
+
     try:
         page = _get_page()
         page.goto(url, wait_until=wait_until, timeout=30000)

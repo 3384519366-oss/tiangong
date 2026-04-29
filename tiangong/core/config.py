@@ -33,6 +33,11 @@ class Config:
         except yaml.YAMLError as e:
             raise ConfigError(f"配置文件解析失败: {e}")
 
+        if self._data is None:
+            self._data = {}
+        if not isinstance(self._data, dict):
+            raise ConfigError("配置文件格式错误：需要一个 YAML 字典（mapping）。")
+
     @classmethod
     def get(cls) -> "Config":
         if cls._instance is None:
@@ -77,7 +82,11 @@ class Config:
             provider_name = self.model_config.get("provider", "deepseek")
         provider = dict(self.provider_config.get(provider_name, {}))
         if "api_key_env" in provider:
-            provider["api_key"] = os.environ.get(provider["api_key_env"], "")
+            env_val = os.environ.get(provider["api_key_env"], "")
+            if env_val:
+                provider["api_key"] = env_val
+            elif not provider.get("api_key"):
+                provider["api_key"] = ""
         return provider
 
     def get_model_name(self, model_key: str) -> str:

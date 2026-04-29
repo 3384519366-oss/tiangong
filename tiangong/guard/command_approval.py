@@ -65,6 +65,11 @@ class CommandApprover:
         """
         cmd_clean = command.strip()
 
+        # 检查会话允许列表
+        for pattern in self._session_allowlist:
+            if pattern in cmd_clean:
+                return "safe", []
+
         # 检查危险模式
         reasons = []
         for pattern, desc in DANGEROUS_PATTERNS:

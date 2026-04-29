@@ -67,19 +67,8 @@ def sandbox_tool(args: dict, **kwargs) -> str:
     if language not in ("python", "bash"):
         return tool_error(f"不支持的语言: {language}。请使用 python 或 bash。")
 
-    # 额外安全检查：危险模式
-    if language == "python":
-        dangerous = [
-            "os.system", "subprocess.", "eval(", "exec(", "__import__",
-            "open(", "socket.", "requests.", "urllib.", "shutil.rmtree",
-            "os.remove", "os.unlink", "os.rmdir",
-        ]
-        for pattern in dangerous:
-            if pattern in code:
-                return tool_error(
-                    f"代码包含危险模式 '{pattern}'，已在沙箱中禁用。"
-                    f"如需文件操作请使用终端命令工具。"
-                )
+    # 安全检查：真实沙箱由 guard/sandbox.py 的子进程隔离 + AST 白名单提供
+    # 此处不做简单的字符串匹配（极易绕过，如 getattr、编码混淆），避免虚假安全感
 
     config = SandboxConfig(
         timeout=min(timeout, 300),  # 硬上限 5 分钟

@@ -313,6 +313,7 @@ except Exception as _e:
 '''
 
         # 3. 子进程隔离执行
+        tmp_path = None
         try:
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".py", delete=False, prefix="tiangong_code_"
@@ -320,13 +321,21 @@ except Exception as _e:
                 f.write(script)
                 tmp_path = f.name
 
+            # 最小化环境变量，防止敏感信息泄露
+            _safe_env_keys = {
+                "PATH", "HOME", "USER", "SHELL", "LANG", "LC_ALL", "LC_CTYPE",
+                "TMPDIR", "TEMP", "TMP", "PYTHONPATH", "PYTHONHOME",
+                "VIRTUAL_ENV", "PYENV_ROOT", "PYENV_VERSION", "PLAYWRIGHT_HEADLESS",
+            }
+            _safe_env = {k: v for k, v in os.environ.items() if k in _safe_env_keys}
+
             proc = subprocess.run(
                 [sys.executable, tmp_path],
                 capture_output=True,
                 text=True,
                 timeout=EXECUTION_TIMEOUT,
                 cwd=str(Path.home()),
-                env={**os.environ},
+                env=_safe_env,
                 preexec_fn=lambda: os.setpgid(0, 0),
             )
 

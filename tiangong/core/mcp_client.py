@@ -9,7 +9,7 @@
 MCP 协议规范: https://modelcontextprotocol.io/
 """
 
-import asyncio
+from concurrent.futures import Future
 import json
 import logging
 import subprocess
@@ -43,7 +43,7 @@ class MCPConnection:
         self.process: Optional[subprocess.Popen] = None
         self._tools: List[dict] = []
         self._next_id = 0
-        self._pending: Dict[int, asyncio.Future] = {}
+        self._pending: Dict[int, Future] = {}
         self._reader_thread: Optional[threading.Thread] = None
         self._running = False
         self._lock = threading.Lock()
@@ -145,7 +145,7 @@ class MCPConnection:
             req_id = self._next_id
             self._next_id += 1
 
-        future = asyncio.Future()
+        future = Future()
         self._pending[req_id] = future
 
         request = {

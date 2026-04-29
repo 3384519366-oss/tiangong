@@ -113,7 +113,8 @@ class TianGongAgent:
             "3. 只回应用户最新一条消息。\n"
         )
 
-        parts = [force_rules, self.personality, "当前系统: macOS"]
+        parts = [force_rules, self.personality,
+                 f"当前系统: macOS，底层模型: {self.llm.model}"]
 
         # [smolagents] Code Agent 提示
         parts.append(
@@ -300,16 +301,21 @@ class TianGongAgent:
         full_response = ""
         tool_calls = None
 
-        for chunk in self.llm.chat_stream(llm_messages, tools=tools):
-            if "_tool_calls" in chunk:
-                tool_calls = chunk["_tool_calls"]
-            elif "_usage" in chunk:
-                if on_usage:
-                    u = chunk["_usage"]
-                    on_usage(u.get("prompt_tokens", 0), u.get("completion_tokens", 0))
-            elif chunk.get("content"):
-                full_response += chunk["content"]
-                yield chunk["content"]
+        try:
+            for chunk in self.llm.chat_stream(llm_messages, tools=tools):
+                if "_tool_calls" in chunk:
+                    tool_calls = chunk["_tool_calls"]
+                elif "_usage" in chunk:
+                    if on_usage:
+                        u = chunk["_usage"]
+                        on_usage(u.get("prompt_tokens", 0), u.get("completion_tokens", 0))
+                elif chunk.get("content"):
+                    full_response += chunk["content"]
+                    yield chunk["content"]
+        except Exception as e:
+            logger.error("LLM 流式调用失败: %s", e)
+            yield f"\n（模型调用出错: {e}）"
+            return
 
         # [smolagents] 执行代码块
         if full_response and not tool_calls:
@@ -347,7 +353,12 @@ class TianGongAgent:
                     ))
                 on_tool_batch(batch_info)
 
-            results = self.tool_executor.execute_batch(tool_calls)
+            try:
+                results = self.tool_executor.execute_batch(tool_calls)
+            except Exception as e:
+                logger.error("工具批量执行失败: %s", e)
+                yield f"\n（工具执行出错: {e}）"
+                return
             steer_msg = self._drain_steer()
 
             for i, tc in enumerate(tool_calls):
@@ -380,6 +391,14 @@ class TianGongAgent:
                 self._log_msg("tool", f"{fn}: {str(result_content)[:300]}")
 
             yield from self._stream_response(self.messages, on_tool_call=on_tool_call, on_tool_batch=on_tool_batch, on_usage=on_usage)
+        else:
+            # 最终文本响应 — 存入消息历史
+            if full_response:
+                self.messages.append({
+                    "role": "assistant",
+                    "content": full_response,
+                })
+                self._log_msg("assistant", full_response)
 
     def _get_llm_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
@@ -423,11 +442,16 @@ class TianGongAgent:
 
             # 截断历史上下文后发送给 LLM
             llm_messages = self._get_llm_messages(self.messages)
-            response = self.llm.chat(llm_messages, tools=self._get_tools())
+            try:
+                response = self.llm.chat(llm_messages, tools=self._get_tools())
+            except Exception as e:
+                logger.error("LLM 调用失败: %s", e)
+                return f"（模型调用出错: {e}）"
 
             if response.get("tool_calls"):
                 tcs = response["tool_calls"]
-                self.budget.consume()
+                if not self.budget.consume():
+                    break
                 self.messages.append({
                     "role": "assistant",
                     "content": response.get("content", ""),
@@ -435,7 +459,11 @@ class TianGongAgent:
                 })
                 self._log_msg("assistant", response.get("content", ""))
 
-                results = self.tool_executor.execute_batch(tcs)
+                try:
+                    results = self.tool_executor.execute_batch(tcs)
+                except Exception as e:
+                    logger.error("工具批量执行失败: %s", e)
+                    return f"（工具执行出错: {e}）"
                 steer_msg = self._drain_steer()
 
                 for i, tc in enumerate(tcs):
@@ -607,6 +635,22 @@ class TianGongAgent:
             """读取文件内容拼入消息。"""
             from pathlib import Path
             fp = Path(path).expanduser().resolve()
+            # 敏感路径防护
+            _SENSITIVE_PATHS = [
+                Path.home() / ".ssh",
+                Path.home() / ".aws",
+                Path.home() / ".gcp",
+                Path.home() / ".config" / "gh",
+                Path.home() / ".gitconfig",
+                Path.home() / ".netrc",
+                Path("/etc") / "passwd",
+                Path("/etc") / "shadow",
+                Path("/etc") / "hosts",
+                Path("/var") / "root",
+            ]
+            if any(fp == sp or fp.is_relative_to(sp) for sp in _SENSITIVE_PATHS):
+                print_info_panel("文件", f"拒绝读取敏感路径: {path}")
+                return None
             if not fp.exists():
                 print_info_panel("文件", f"不存在: {path}")
                 return None
@@ -786,7 +830,12 @@ class TianGongAgent:
 
                 self.budget.reset()
                 self._maybe_auto_save()
-                full = stream_assistant(stream_with_ui(self.messages))
+                try:
+                    full = stream_assistant(stream_with_ui(self.messages))
+                except Exception as e:
+                    logger.error("对话出错: %s", e)
+                    print_error(f"对话出错: {e}")
+                    continue
 
                 if self.auto_speak and full.strip():
                     self._speak(full)

@@ -79,10 +79,16 @@ def write_tool(args: dict, **kwargs) -> str:
     path = Path(file_path).expanduser().resolve()
 
     # 安全检查：禁止写入某些敏感位置
-    dangerous_prefixes = ["/etc/", "/System/", "/var/root/", "~/.ssh/"]
+    home = str(Path.home())
+    dangerous_prefixes = [
+        "/etc/", "/System/", "/var/root/",
+        f"{home}/.ssh/", f"{home}/.aws/", f"{home}/.gcp/",
+        f"{home}/.bash_profile", f"{home}/.zshrc", f"{home}/.bashrc",
+        f"{home}/.profile", f"{home}/.gitconfig", f"{home}/.netrc",
+    ]
     for prefix in dangerous_prefixes:
-        if str(path).startswith(os.path.expanduser(prefix.replace("~", str(Path.home())))):
-            return tool_error(f"禁止写入系统敏感目录: {prefix}")
+        if str(path) == str(prefix.rstrip("/")) or str(path).startswith(str(prefix)):
+            return tool_error(f"禁止写入敏感位置: {prefix}")
 
     # 创建父目录
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -122,6 +128,19 @@ def edit_tool(args: dict, **kwargs) -> str:
         return tool_error("old_string 不能为空。")
 
     path = Path(file_path).expanduser().resolve()
+
+    # 安全检查：禁止编辑敏感位置
+    home = str(Path.home())
+    dangerous_prefixes = [
+        "/etc/", "/System/", "/var/root/",
+        f"{home}/.ssh", f"{home}/.aws", f"{home}/.gcp",
+        f"{home}/.bash_profile", f"{home}/.zshrc", f"{home}/.bashrc",
+        f"{home}/.profile", f"{home}/.gitconfig", f"{home}/.netrc",
+    ]
+    for prefix in dangerous_prefixes:
+        if str(path).startswith(str(prefix)):
+            return tool_error(f"禁止编辑敏感位置: {prefix}")
+
     if not path.exists():
         return tool_error(f"文件不存在: {path}")
     if path.is_dir():

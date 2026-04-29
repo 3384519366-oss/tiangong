@@ -10,6 +10,7 @@
 import json
 import logging
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -78,6 +79,9 @@ class SessionStore:
             logger.warning("保存会话索引失败: %s", e)
 
     def _session_path(self, session_id: str) -> Path:
+        # 防止路径遍历：session_id 仅允许字母数字和短横线
+        if not session_id or not re.match(r'^[a-zA-Z0-9_-]+\Z', session_id):
+            raise ValueError(f"无效的 session_id: {session_id}")
         return self._sessions_dir / f"{session_id}.json"
 
     def save(self, session_id: str, messages: List[Dict[str, Any]],

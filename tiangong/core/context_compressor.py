@@ -246,12 +246,16 @@ def llm_summarize_messages(
     if len(conversation) > 12000:
         conversation = conversation[:12000] + "\n... (已截断)"
 
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": _SUMMARIZE_PROMPT},
-            {"role": "user", "content": f"请总结以下对话:\n\n{conversation}"},
-        ],
-        max_tokens=min(max_tokens, 4096),
-    )
-    return response.choices[0].message.content or ""
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": _SUMMARIZE_PROMPT},
+                {"role": "user", "content": f"请总结以下对话:\n\n{conversation}"},
+            ],
+            max_tokens=min(max_tokens, 4096),
+        )
+        return response.choices[0].message.content or ""
+    except Exception as e:
+        logger.warning("LLM 摘要失败: %s", e)
+        return ""
