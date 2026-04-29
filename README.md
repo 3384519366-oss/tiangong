@@ -11,12 +11,16 @@
 ## 快速开始
 
 ```bash
+# 克隆项目
+git clone https://github.com/3384519366-oss/tiangong.git
+cd tiangong
+
 # 安装
 pip install -e .
 
-# 可选依赖
+# 可选依赖（按需安装，不装不影响核心功能）
 pip install -e ".[voice]"      # 语音合成/识别
-pip install -e ".[browser]"    # 浏览器自动化
+pip install -e ".[browser]"    # 浏览器自动化（不装会有 WARNING，可忽略）
 pip install -e ".[all]"        # 全部功能
 
 # 启动
