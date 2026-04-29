@@ -1,49 +1,31 @@
-# 天工 AI 助手 — 默认配置
-#
-# 首次运行 `tiangong` 会自动进入配置向导。
-# 也可手动填写下方模型和 API Key。
-#
-# 配置说明：https://github.com/chengzi-AI/tiangong
-
 model:
   default: gpt4o_mini
   provider: openai
   base_url: https://api.openai.com/v1
-
 providers:
   openai:
     type: openai
     api_key_env: OPENAI_API_KEY
-    base_url: https://api.openai.com/v1
     models:
       gpt4o_mini:
         name: gpt-4o-mini
         display_name: GPT-4o-mini
         max_tokens: 4096
-      gpt4o:
-        name: gpt-4o
-        display_name: GPT-4o
-        max_tokens: 4096
-
 agent:
   name: 天工
   max_turns: 60
   timeout: 1800
-  personality: "你是「天工 AI 助手」，由 chengzi-AI 团队开发并开源。你是专业、高效、为中国开发者而生的全中文智能编程搭档。简洁优先，先说结论。"
-
+  personality: '你是「天工 AI 助手」，一个专业、高效、为中国开发者而生的全中文智能编程搭档。'
 memory:
   enabled: true
   memory_char_limit: 5000
   user_char_limit: 3000
-
 voice:
-  enabled: false
+  enabled: true
   tts_provider: edge
   tts_voice: zh-CN-female
   auto_speak: false
-
 computer_use:
-  enabled: false
-
+  enabled: true
 logging:
   level: WARNING

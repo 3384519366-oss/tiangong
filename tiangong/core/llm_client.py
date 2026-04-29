@@ -11,7 +11,7 @@
 import logging
 from typing import Any, Dict, List, Generator
 
-from .config import Config
+from .config import Config, ConfigError
 from .llm_provider import (
     BaseLLMProvider,
     OpenAICompatibleProvider,
@@ -52,7 +52,7 @@ def _build_provider(model_key: str | None = None) -> BaseLLMProvider:
 
     provider_type = provider_data.get("type", "openai")
     api_key = provider_data.get("api_key", "")
-    base_url = provider_data.get("base_url", "")
+    base_url = provider_data.get("base_url", "") or config.model_config.get("base_url", "")
     max_tokens = model_info.get("max_tokens", 8192)
 
     if provider_type in ("ollama",):
@@ -69,6 +69,12 @@ def _build_provider(model_key: str | None = None) -> BaseLLMProvider:
         )
     else:
         # OpenAI 兼容 (深度寻求 / OpenAI / Anthropic / GLM / Kimi / 阿里 / OpenRouter 等)
+        if not base_url:
+            raise ConfigError(
+                f"Provider '{provider_name}' 缺少 base_url 配置。\n"
+                f"请在 config.yaml 的 providers.{provider_name}.base_url 或 model.base_url 中设置 API 端点。\n"
+                f"示例: base_url: https://api.deepseek.com/v1"
+            )
         return OpenAICompatibleProvider(
             api_key=api_key,
             base_url=base_url,
