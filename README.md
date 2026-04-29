@@ -1,5 +1,9 @@
 # 天工 AI 助手
 
+<p align="center">
+  <img src="assets/demo.jpg" alt="天工 CLI 界面" width="800">
+</p>
+
 全中文交互界面的智能编程搭档，由 **chengzi-AI 团队** 开源。
 
 融合 Hermes、Claude Code、smolagents 三大框架精华，CLI 界面、系统提示、工具输出中文覆盖率 95%+，支持 9 家模型 Provider、20 个内置工具、完整 macOS 屏幕操控。
