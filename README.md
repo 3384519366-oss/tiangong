@@ -1,8 +1,8 @@
 # 天工 AI 助手
 
-为中国开发者而生的全中文智能编程搭档，由 **chengzi-AI 团队** 开源。
+全中文交互界面的智能编程搭档，由 **chengzi-AI 团队** 开源。
 
-融合 Hermes、Claude Code、smolagents 三大框架精华，支持 9 家模型 Provider、20 个内置工具、完整 macOS 屏幕操控。
+融合 Hermes、Claude Code、smolagents 三大框架精华，CLI 界面、系统提示、工具输出中文覆盖率 95%+，支持 9 家模型 Provider、20 个内置工具、完整 macOS 屏幕操控。
 
 ## 快速开始
 
